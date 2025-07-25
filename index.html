@@ -1,0 +1,175 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plant Disease Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f0f5f0;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .upload-area {
+            border: 2px dashed #4CAF50;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        .results {
+            margin-top: 20px;
+            display: none;
+        }
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        .preview-image {
+            max-width: 300px;
+            margin: 20px 0;
+        }
+        #uploadButton {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .progress-bar {
+            background-color: #f0f0f0;
+            border-radius: 5px;
+            padding: 3px;
+            margin-top: 5px;
+        }
+        .progress {
+            background-color: #4CAF50;
+            height: 20px;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Plant Disease Detection</h1>
+        
+        <div class="upload-area" id="dropZone">
+            <p>Drag and drop an image here or click to select</p>
+            <input type="file" id="fileInput" accept="image/*" style="display: none;">
+            <button id="uploadButton">Select Image</button>
+        </div>
+
+        <img id="preview" class="preview-image" style="display: none;">
+        
+        <div id="results" class="results">
+            <h2>Detection Results</h2>
+            <div id="resultList"></div>
+        </div>
+    </div>
+
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const uploadButton = document.getElementById('uploadButton');
+        const preview = document.getElementById('preview');
+        const results = document.getElementById('results');
+        const resultList = document.getElementById('resultList');
+
+        // Handle file selection button
+        uploadButton.addEventListener('click', () => fileInput.click());
+
+        // Handle file input change
+        fileInput.addEventListener('change', handleFile);
+
+        // Handle drag and drop
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#4CAF50';
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.borderColor = '#ccc';
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = '#ccc';
+            
+            const files = e.dataTransfer.files;
+            if (files.length) {
+                fileInput.files = files;
+                handleFile(e);
+            }
+        });
+
+        function handleFile(e) {
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            // Show image preview
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.src = e.target.result;
+                preview.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+
+            // Upload and get predictions
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/predict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                // Display results
+                results.style.display = 'block';
+                resultList.innerHTML = '';
+                
+                data.predictions.forEach(pred => {
+                    const resultItem = document.createElement('div');
+                    resultItem.className = 'result-item';
+                    
+                    const probability = (pred.probability * 100).toFixed(2);
+                    
+                    resultItem.innerHTML = `
+                        <span>${pred.disease}</span>
+                        <div style="width: 200px;">
+                            <span>${probability}%</span>
+                            <div class="progress-bar">
+                                <div class="progress" style="width: ${probability}%"></div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    resultList.appendChild(resultItem);
+                });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error processing image');
+            });
+        }
+    </script>
+</body>
+</html>
